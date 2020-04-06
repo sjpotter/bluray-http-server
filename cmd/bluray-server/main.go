@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -8,9 +9,15 @@ import (
 	_ "github.com/sjpotter/bluray-http-server/pkg/pkg/handlers"
 )
 
+var (
+	port = flag.Int("port", 8080, "port for http server to listen to")
+)
+
 func main() {
+	flag.Parse()
+
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: fmt.Sprintf(":%v", *port),
 	}
 
 	err := server.ListenAndServe()
