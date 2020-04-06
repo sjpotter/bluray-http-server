@@ -15,7 +15,7 @@ import (
 	"github.com/sjpotter/bluray-http-server/pkg/pkg/types"
 )
 
-func newBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, error) {
+func NewBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, error) {
 	bd := C.bd_open(C.CString(file), nil)
 	if bd == nil {
 		return nil, fmt.Errorf("Error opening %s\n", file)

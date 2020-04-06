@@ -33,7 +33,7 @@ func metadata(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	bdrs, err := newBDReadSeeker(file, playlist, 0)
+	bdrs, err := NewBDReadSeeker(file, playlist, 0)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return

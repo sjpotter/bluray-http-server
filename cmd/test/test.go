@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"unsafe"
 )
 
 func main() {
@@ -62,10 +63,18 @@ func dumpClips(clips *C.struct_bd_clip, count C.uint) {
 			fmt.Printf("    video: %+v\n", clips.video_streams)
 		}
 		if clips.audio_streams != nil {
-			fmt.Printf("    audio: %+v\n", clips.audio_streams)
+			size := int(clips.audio_stream_count)
+			audioStreams := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(clips.audio_streams))[:size:size]
+			for i := 0; i < size; i++ {
+				fmt.Printf("    audio: %+v\n", audioStreams[i])
+			}
 		}
 		if clips.pg_streams != nil {
-			fmt.Printf("    pg: %+v\n", clips.pg_streams)
+			size := int(clips.pg_stream_count)
+			pgStreams := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(clips.pg_streams))[:size:size]
+			for i := 0; i < size; i++ {
+				fmt.Printf("    pg: %+v\n", pgStreams[i])
+			}
 		}
 		if clips.ig_streams != nil {
 			fmt.Printf("   ig: %+v\n", clips.ig_streams)

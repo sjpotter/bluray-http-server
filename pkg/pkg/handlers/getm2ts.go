@@ -43,7 +43,7 @@ func getm2ts(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	bdrs, err := newBDReadSeeker(file, playlist, seekTime)
+	bdrs, err := NewBDReadSeeker(file, playlist, seekTime)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return
