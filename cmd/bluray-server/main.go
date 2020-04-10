@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	_ "github.com/sjpotter/bluray-http-server/pkg/pkg/handlers"
+	_ "github.com/sjpotter/bluray-http-server/pkg/handlers"
 )
 
 var (

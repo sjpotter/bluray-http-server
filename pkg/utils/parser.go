@@ -1,4 +1,4 @@
-package handlers
+package utils
 
 /*
 #cgo pkg-config: libbluray
@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/sjpotter/bluray-http-server/pkg/pkg/types"
+	"github.com/sjpotter/bluray-http-server/pkg/types"
 )
 
-func parseTitle(ti *C.struct_bd_title_info) (*types.BDTitle, error) {
+func ParseTitle(p unsafe.Pointer) (*types.BDTitle, error) {
+	ti := (*C.struct_bd_title_info)(p)
+
 	videoType, err := parseVideo(ti)
 	if err != nil {
 		return nil, err
@@ -76,8 +78,8 @@ func parseChapters(ti *C.struct_bd_title_info) ([]types.ChapterInfo, error) {
 	return chapterInfos, nil
 }
 
-func parsePG(ti *C.struct_bd_title_info) ([]types.PGInfo, error) {
-	var pgInfos []types.PGInfo
+func parsePG(ti *C.struct_bd_title_info) (map[int]*types.PGInfo, error) {
+	pgInfos := make(map[int]*types.PGInfo)
 
 	size := int(ti.clips.pg_stream_count)
 	if ti.clips.pg_streams != nil {
@@ -87,15 +89,15 @@ func parsePG(ti *C.struct_bd_title_info) ([]types.PGInfo, error) {
 			if err != nil {
 				return nil, err
 			}
-			pgInfos = append(pgInfos, *pgInfo)
+			pgInfos[int(pgStreams[i].pid)] = pgInfo
 		}
 	}
 
 	return pgInfos, nil
 }
 
-func parseAudio(ti *C.struct_bd_title_info) ([]types.AudioInfo, error) {
-	var audioInfos []types.AudioInfo
+func parseAudio(ti *C.struct_bd_title_info) (map[int]*types.AudioInfo, error) {
+	audioInfos := make(map[int]*types.AudioInfo)
 
 	size := int(ti.clips.audio_stream_count)
 	if ti.clips.audio_streams != nil {
@@ -105,7 +107,7 @@ func parseAudio(ti *C.struct_bd_title_info) ([]types.AudioInfo, error) {
 			if err != nil {
 				return nil, err
 			}
-			audioInfos = append(audioInfos, *audioInfo)
+			audioInfos[int(audioStreams[i].pid)] = audioInfo
 		}
 	}
 

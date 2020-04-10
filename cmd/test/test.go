@@ -46,7 +46,13 @@ func main() {
 func dumpBDTitle(info *C.struct_bd_title_info) {
 	fmt.Printf("%+v\n", info)
 	dumpChapters(info.chapters, info.chapter_count)
-	dumpClips(info.clips, info.clip_count)
+	if info.clip_count != 0 {
+		clips := (*[1 << 30]C.struct_bd_clip)(unsafe.Pointer(info.clips))[:info.clip_count:info.clip_count]
+		for _, clip := range clips {
+			dumpClips(&clip)
+		}
+
+	}
 	dumpMarks(info.marks, info.mark_count)
 }
 
@@ -55,29 +61,29 @@ func dumpChapters(chapters *C.struct_bd_chapter, count C.uint) {
 	fmt.Printf("  %+v (count = %v)\n", chapters, count)
 }
 
-func dumpClips(clips *C.struct_bd_clip, count C.uint) {
+func dumpClips(clip *C.struct_bd_clip) {
 	fmt.Println("Clips:")
-	if clips != nil {
-		fmt.Printf("  %+v (%v)\n", clips, count)
-		if clips.video_streams != nil {
-			fmt.Printf("    video: %+v\n", clips.video_streams)
+	if clip != nil {
+		fmt.Printf("  %+v\n", clip)
+		if clip.video_streams != nil {
+			fmt.Printf("    video: %+v\n", clip.video_streams)
 		}
-		if clips.audio_streams != nil {
-			size := int(clips.audio_stream_count)
-			audioStreams := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(clips.audio_streams))[:size:size]
+		if clip.audio_streams != nil {
+			size := int(clip.audio_stream_count)
+			audioStreams := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(clip.audio_streams))[:size:size]
 			for i := 0; i < size; i++ {
 				fmt.Printf("    audio: %+v\n", audioStreams[i])
 			}
 		}
-		if clips.pg_streams != nil {
-			size := int(clips.pg_stream_count)
-			pgStreams := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(clips.pg_streams))[:size:size]
+		if clip.pg_streams != nil {
+			size := int(clip.pg_stream_count)
+			pgStreams := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(clip.pg_streams))[:size:size]
 			for i := 0; i < size; i++ {
 				fmt.Printf("    pg: %+v\n", pgStreams[i])
 			}
 		}
-		if clips.ig_streams != nil {
-			fmt.Printf("   ig: %+v\n", clips.ig_streams)
+		if clip.ig_streams != nil {
+			fmt.Printf("   ig: %+v\n", clip.ig_streams)
 		}
 	}
 }
@@ -89,7 +95,7 @@ func dumpMarks(marks *C.struct_bd_mark, count C.uint) {
 	}
 }
 
-func getTitleInfo(bd *C.BLURAY, t int)  (*C.struct_bd_title_info, error) {
+func getTitleInfo(bd *C.BLURAY, t int) (*C.struct_bd_title_info, error) {
 	numTitles := C.bd_get_titles(bd, C.TITLES_RELEVANT, 0)
 
 	fmt.Printf("numTitles = %v\n", numTitles)

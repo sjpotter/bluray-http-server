@@ -20,7 +20,7 @@ type BDTitle struct {
 	Playlist  int
 	Duration  int64
 	VideoType string
-	Audio     []AudioInfo
-	PG        []PGInfo
+	Audio     map[int]*AudioInfo
+	PG        map[int]*PGInfo
 	Chapters  []ChapterInfo
 }

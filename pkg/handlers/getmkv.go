@@ -3,12 +3,13 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"github.com/sjpotter/bluray-http-server/pkg/utils"
-	"io"
 	"net/http"
-	"os"
-	"os/exec"
+	"net/http/httputil"
 	"strconv"
+	"time"
+
+	"github.com/sjpotter/bluray-http-server/pkg/readers"
+	"github.com/sjpotter/bluray-http-server/pkg/utils"
 )
 
 func init() {
@@ -44,65 +45,27 @@ func getmkv(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	bdrs, err := NewBDReadSeeker(file, playlist, seekTime)
+	requestDump, err := httputil.DumpRequest(request, false)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(requestDump))
+
+	bdrs, err := readers.NewBDReadSeeker(file, playlist, seekTime)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return
 	}
 	defer bdrs.Close()
 
-	info, err := bdrs.ParseTile()
+	mkvMuxer, err := readers.NewMKVMuxer(bdrs)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return
 	}
+	defer mkvMuxer.Close()
 
 	writer.Header().Add("Content-Type", "application/octet-stream")
 	writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v.mkv\"", playlistString))
-	writer.Header().Add("Content-Length", "-1")
-
-	cmdLine := []string{"-i", "-", "-map", "0"}
-	for i, a := range info.Audio {
-		cmdLine = append(cmdLine, fmt.Sprintf("-metadata:s:a:%v", i), fmt.Sprintf("language=%v", a.AudioLang))
-	}
-	for i, s := range info.PG {
-		cmdLine = append(cmdLine, fmt.Sprintf("-metadata:s:s:%v", i), fmt.Sprintf("language=%v", s.PGLang))
-	}
-
-	cmdLine = append(cmdLine, "-codec", "copy", "-f", "matroska", "-")
-
-	cmd := exec.Command("ffmpeg", cmdLine...)
-	cmd.Stdin = bdrs
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(4)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(5)
-	}
-
-	fmt.Printf("cmd = %+v\n", cmd)
-
-	if err := cmd.Start(); err != nil {
-		fmt.Println(err)
-		os.Exit(6)
-	}
-
-	io.Copy(writer, stdout)
-
-	if err := cmd.Wait(); err != nil {
-		fmt.Println(err)
-	}
-
-	buf := make([]byte, 100000)
-	len, err := stderr.Read(buf)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Printf("stderr = \n%v\n", string(buf[0:len]))
+	http.ServeContent(writer, request, fmt.Sprintf("%v.mkv", playlistString), time.Now(), mkvMuxer)
 }
-

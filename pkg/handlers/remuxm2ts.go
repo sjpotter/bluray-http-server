@@ -4,17 +4,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"strconv"
 	"time"
 
+	"github.com/sjpotter/bluray-http-server/pkg/readers"
 	"github.com/sjpotter/bluray-http-server/pkg/utils"
 )
 
 func init() {
-	http.HandleFunc("/getm2ts", getm2ts)
+	http.HandleFunc("/remuxm2ts", remuxm2ts)
 }
 
-func getm2ts(writer http.ResponseWriter, request *http.Request) {
+func remuxm2ts(writer http.ResponseWriter, request *http.Request) {
 	if request.URL.Query().Get("file") == "" {
 		utils.GenericError(writer, errors.New("need to provide a file"))
 		return
@@ -43,14 +45,27 @@ func getm2ts(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	bdrs, err := NewBDReadSeeker(file, playlist, seekTime)
+	requestDump, err := httputil.DumpRequest(request, false)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(requestDump))
+
+	bdrs, err := readers.NewBDReadSeeker(file, playlist, seekTime)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return
 	}
 	defer bdrs.Close()
 
+	remuxer, err := readers.NewM2TSRemuxer(bdrs)
+	if err != nil {
+		utils.GenericError(writer, err)
+		return
+	}
+	defer remuxer.Close()
+
 	writer.Header().Add("Content-Type", "application/octet-stream")
 	writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v.m2ts\"", playlistString))
-	http.ServeContent(writer, request, fmt.Sprintf("%v.m2ts", playlistString), time.Now(), bdrs)
+	http.ServeContent(writer, request, fmt.Sprintf("%v.m2ts", playlistString), time.Now(), remuxer)
 }

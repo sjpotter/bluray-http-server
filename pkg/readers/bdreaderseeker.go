@@ -1,4 +1,4 @@
-package handlers
+package readers
 
 /*
 #cgo pkg-config: libbluray
@@ -11,8 +11,10 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"unsafe"
 
-	"github.com/sjpotter/bluray-http-server/pkg/pkg/types"
+	"github.com/sjpotter/bluray-http-server/pkg/types"
+	"github.com/sjpotter/bluray-http-server/pkg/utils"
 )
 
 func NewBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, error) {
@@ -52,10 +54,14 @@ type BDReadSeeker struct {
 }
 
 func (b *BDReadSeeker) Read(buf []byte) (int, error) {
-	p := C.malloc(6144)
-	defer C.free(p)
+	p := C.malloc(C.ulong(cap(buf)))
+	if p != nil {
+		defer C.free(p)
+	} else {
+		return 0, fmt.Errorf("couldn't allocate memory space for the read")
+	}
 
-	size := C.bd_read(b.bd, (*C.uchar)(p), 6144)
+	size := C.bd_read(b.bd, (*C.uchar)(p), C.int(cap(buf)))
 
 	data := C.GoBytes(p, size)
 
@@ -94,7 +100,11 @@ func (b *BDReadSeeker) ParseTile() (*types.BDTitle, error) {
 		C.bd_free_title_info(ti)
 	}()
 
-	return parseTitle(ti)
+	return utils.ParseTitle(unsafe.Pointer(ti))
+}
+
+func (b *BDReadSeeker) Size() int64 {
+	return b.size
 }
 
 func findTitle(bd *C.BLURAY, playlist int) (int, error) {

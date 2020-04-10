@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/sjpotter/bluray-http-server/pkg/readers"
 	"github.com/sjpotter/bluray-http-server/pkg/utils"
 )
 
@@ -33,7 +34,7 @@ func metadata(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	bdrs, err := NewBDReadSeeker(file, playlist, 0)
+	bdrs, err := readers.NewBDReadSeeker(file, playlist, 0)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return
