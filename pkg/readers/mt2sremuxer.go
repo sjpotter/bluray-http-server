@@ -8,6 +8,9 @@ import (
 	"github.com/sjpotter/bluray-http-server/pkg/types"
 )
 
+var _ BluRayReader = &M2TSRemuxer{}
+
+
 type M2TSRemuxer struct {
 	b               *BDReadSeeker
 	info            *types.BDTitle
@@ -18,7 +21,11 @@ type M2TSRemuxer struct {
 }
 
 // Generates the packet at setup time to minimize speed disruption during reading
-func NewM2TSRemuxer(b *BDReadSeeker) (*M2TSRemuxer, error) {
+func NewM2TSRemuxer(file string, playlist int) (*M2TSRemuxer, error) {
+	b, err := NewBDReadSeeker(file, playlist, 0)
+	if err != nil {
+		return nil, err
+	}
 	info, err := b.ParseTile()
 	if err != nil {
 		return nil, err
@@ -114,9 +121,13 @@ func (m *M2TSRemuxer) Seek(offset int64, whence int) (int64, error) {
 	return n, err
 }
 
+func (m *M2TSRemuxer) Size() uint64 {
+	return m.b.Size() + uint64(m.deltaSize)
+}
+
 // Doesn't do anything yet, needed if part of the readercloser interface
 func (m *M2TSRemuxer) Close() {
-	return
+	m.b.Close()
 }
 
 // This an probably be done more efficiently, but it's clear enough
