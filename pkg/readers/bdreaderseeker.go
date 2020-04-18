@@ -17,6 +17,13 @@ import (
 	"github.com/sjpotter/bluray-http-server/pkg/utils"
 )
 
+type BluRayReader interface {
+	Read(buf []byte) (int, error)
+	Seek(offset int64, whence int) (int64, error)
+	Close()
+	Size() uint64
+}
+
 func NewBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, error) {
 	bd := C.bd_open(C.CString(file), nil)
 	if bd == nil {
@@ -45,6 +52,8 @@ func NewBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, er
 
 	return &BDReadSeeker{bd: bd, title: title, start: start, size: int64(size)}, nil
 }
+
+var _ BluRayReader = &BDReadSeeker{}
 
 type BDReadSeeker struct {
 	bd    *C.BLURAY
@@ -103,8 +112,8 @@ func (b *BDReadSeeker) ParseTile() (*types.BDTitle, error) {
 	return utils.ParseTitle(unsafe.Pointer(ti))
 }
 
-func (b *BDReadSeeker) Size() int64 {
-	return b.size
+func (b *BDReadSeeker) Size() uint64 {
+	return uint64(b.size)
 }
 
 func findTitle(bd *C.BLURAY, playlist int) (int, error) {
