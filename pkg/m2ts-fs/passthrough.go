@@ -2,6 +2,7 @@ package m2ts_fs
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -11,6 +12,7 @@ import (
 
 var _ = fs.Node(&passthrough{})
 var _ = fs.NodeOpener(&passthrough{})
+var _ = fs.NodeFsyncer(&passthrough{})
 
 type passthrough struct {
 	path string
@@ -19,6 +21,7 @@ type passthrough struct {
 var _ = fs.Handle(&plainFileHandle{})
 var _ = fs.HandleReleaser(&plainFileHandle{})
 var _ = fs.HandleReader(&plainFileHandle{})
+var _ = fs.HandleWriter(&plainFileHandle{})
 
 type plainFileHandle struct {
 	f      *os.File
@@ -36,12 +39,19 @@ func (p *passthrough) Attr(ctx context.Context, attr *fuse.Attr) error {
 }
 
 func (f *passthrough) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
+	fmt.Printf("Open: %+v\n", req)
+
 	r, err := os.Open(f.path)
 	if err != nil {
 		return nil, err
 	}
 
 	return &plainFileHandle{f: r}, nil
+}
+
+// FIXME: HACK as vi failed as it tried to call fsync (should be on handle, as acknowledged in comments)
+func (p *passthrough) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	return nil
 }
 
 func (p plainFileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
@@ -62,6 +72,20 @@ func (p *plainFileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp 
 	p.offset += int64(n)
 
 	resp.Data = buf
+
+	return err
+}
+
+func (p *plainFileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+	if req.Offset != p.offset {
+		p.f.Seek(req.Offset, io.SeekStart)
+	}
+
+	n, err := p.f.Write(req.Data)
+	if err == nil {
+		resp.Size = n
+		p.offset += int64(n)
+	}
 
 	return err
 }
