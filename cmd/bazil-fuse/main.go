@@ -3,14 +3,20 @@ package main
 import (
 	"flag"
 	"fmt"
-	m2ts_fs "github.com/sjpotter/bluray-http-server/pkg/m2ts-fs"
 	"log"
 	"os"
 	"path/filepath"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"bazil.org/fuse/fs/fstestutil"
+
+	m2ts_fs "github.com/sjpotter/bluray-http-server/pkg/m2ts-fs"
 )
+
+func init() {
+	fstestutil.DebugByDefault()
+}
 
 var progName = filepath.Base(os.Args[0])
 
@@ -46,7 +52,7 @@ func mount(path, mountpoint string) error {
 		return err
 	}
 
-	c, err := fuse.Mount(mountpoint)
+	c, err := fuse.Mount(mountpoint, fuse.AllowOther())
 	if err != nil {
 		return err
 	}
