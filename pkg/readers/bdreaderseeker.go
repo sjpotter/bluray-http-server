@@ -24,13 +24,13 @@ type BluRayReader interface {
 	Size() uint64
 }
 
-func NewBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, error) {
+func NewBDReadSeeker(file string, playlist int) (*BDReadSeeker, error) {
 	bd := C.bd_open(C.CString(file), nil)
 	if bd == nil {
 		return nil, fmt.Errorf("Error opening %s\n", file)
 	}
 
-	title, err := findTitle(bd, playlist)
+	title, err := findTitle(bd, file, playlist)
 	if err != nil {
 		return nil, err
 	}
@@ -41,24 +41,15 @@ func NewBDReadSeeker(file string, playlist int, seekTime int) (*BDReadSeeker, er
 
 	size := C.bd_get_title_size(bd)
 
-	start := int64(0)
-	if seekTime != 0 {
-		cTime := C.ulong(seekTime * 90000)
-		C.bd_seek_time(bd, cTime)
-		cur := C.bd_tell(bd)
-		start = int64(cur)
-		fmt.Printf("start is now %v\n", start)
-	}
-
-	return &BDReadSeeker{bd: bd, title: title, start: start, size: int64(size)}, nil
+	return &BDReadSeeker{bd: bd, file: file, title: title, size: int64(size)}, nil
 }
 
 var _ BluRayReader = &BDReadSeeker{}
 
 type BDReadSeeker struct {
 	bd    *C.BLURAY
+	file  string
 	title int
-	start int64
 	size  int64
 }
 
@@ -83,20 +74,23 @@ func (b *BDReadSeeker) Read(buf []byte) (int, error) {
 func (b *BDReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
 	case io.SeekStart:
-		offset += b.start
+		offset += 0
 	case io.SeekCurrent:
 		cur := C.bd_tell(b.bd)
 		offset += int64(cur)
-		if offset < b.start {
-			offset = b.start
-		}
 	case io.SeekEnd:
 		offset += b.size
 	}
 
+	if offset > b.size {
+		offset = b.size
+	} else if offset < 0 {
+		offset = 0
+	}
+
 	C.bd_seek(b.bd, C.ulong(offset))
 
-	return offset - b.start, nil
+	return offset, nil
 }
 
 func (b *BDReadSeeker) Close() {
@@ -105,9 +99,10 @@ func (b *BDReadSeeker) Close() {
 
 func (b *BDReadSeeker) ParseTile() (*types.BDTitle, error) {
 	ti := C.bd_get_title_info(b.bd, C.uint(b.title), 0)
-	defer func() {
-		C.bd_free_title_info(ti)
-	}()
+	if ti == nil {
+		return nil, fmt.Errorf("couldn't get title info for %v:%v", b.file, b.title)
+	}
+	defer C.bd_free_title_info(ti)
 
 	return utils.ParseTitle(unsafe.Pointer(ti))
 }
@@ -116,12 +111,15 @@ func (b *BDReadSeeker) Size() uint64 {
 	return uint64(b.size)
 }
 
-func findTitle(bd *C.BLURAY, playlist int) (int, error) {
+func findTitle(bd *C.BLURAY, file string, playlist int) (int, error) {
 	numTitles := C.bd_get_titles(bd, C.TITLES_RELEVANT, 0)
 	var i C.uint
 
 	for i = 0; i < numTitles; i++ {
 		ti := C.bd_get_title_info(bd, i, 0)
+		if ti == nil {
+			fmt.Printf("couldn't get title info for %v:%v", file, playlist)
+		}
 		if int(ti.playlist) == playlist {
 			return int(ti.idx), nil
 		}

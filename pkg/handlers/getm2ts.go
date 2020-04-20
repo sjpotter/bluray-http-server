@@ -35,23 +35,13 @@ func getm2ts(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	var seekTime int
-	timeString := request.URL.Query().Get("time")
-	if timeString != "" {
-		seekTime, err = strconv.Atoi(timeString)
-		if err != nil {
-			utils.GenericError(writer, err)
-			return
-		}
-	}
-
 	requestDump, err := httputil.DumpRequest(request, false)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(string(requestDump))
 
-	bdrs, err := readers.NewBDReadSeeker(file, playlist, seekTime)
+	bdrs, err := readers.NewBDReadSeeker(file, playlist)
 	if err != nil {
 		utils.GenericError(writer, err)
 		return

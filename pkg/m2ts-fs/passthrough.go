@@ -39,8 +39,6 @@ func (p *passthrough) Attr(ctx context.Context, attr *fuse.Attr) error {
 }
 
 func (f *passthrough) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	fmt.Printf("Open: %+v\n", req)
-
 	r, err := os.Open(f.path)
 	if err != nil {
 		return nil, err
@@ -51,6 +49,7 @@ func (f *passthrough) Open(ctx context.Context, req *fuse.OpenRequest, resp *fus
 
 // FIXME: HACK as vi failed as it tried to call fsync (should be on handle, as acknowledged in comments)
 func (p *passthrough) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	fmt.Printf("Fsync: req = %+v\n", req)
 	return nil
 }
 
@@ -77,6 +76,7 @@ func (p *plainFileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp 
 }
 
 func (p *plainFileHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+	fmt.Printf("Write: %p = %+v\n", p, p)
 	if req.Offset != p.offset {
 		p.f.Seek(req.Offset, io.SeekStart)
 	}

@@ -1,14 +1,15 @@
 package m2ts_fs
 
 import (
-	"github.com/sjpotter/bluray-http-server/pkg/readers"
 	"io/ioutil"
 	"path/filepath"
 
     "github.com/goccy/go-yaml"
+
+	"github.com/sjpotter/bluray-http-server/pkg/readers"
 )
 
-func getM2TS(path string) (*M2TSInfo, error) {
+func readM2TSInfoFile(path string) (*M2TSInfo, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -26,7 +27,7 @@ func getM2TS(path string) (*M2TSInfo, error) {
 }
 
 func getBDRS(path string) (*readers.BDReadSeeker, error) {
-	info, err := getM2TS(path)
+	info, err := readM2TSInfoFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -34,11 +35,11 @@ func getBDRS(path string) (*readers.BDReadSeeker, error) {
 	parent := filepath.Dir(path)
 	iso := filepath.Join(parent, info.File)
 
-	return readers.NewBDReadSeeker(iso, info.Playlist, 0)
+	return readers.NewBDReadSeeker(iso, info.Playlist)
 }
 
 func getM2TSRemuxer(path string) (*readers.M2TSRemuxer, error) {
-	info, err := getM2TS(path)
+	info, err := readM2TSInfoFile(path)
 	if err != nil {
 		return nil, err
 	}
