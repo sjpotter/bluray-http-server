@@ -149,8 +149,6 @@ func (d *dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 		return nil, nil, err
 	}
 
-	fmt.Printf("success!\n")
-
 	return &passthrough{path: path}, &plainFileHandle{f: f}, nil
 }
 

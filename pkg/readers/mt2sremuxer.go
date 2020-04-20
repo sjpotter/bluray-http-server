@@ -22,7 +22,7 @@ type M2TSRemuxer struct {
 
 // Generates the packet at setup time to minimize speed disruption during reading
 func NewM2TSRemuxer(file string, playlist int) (*M2TSRemuxer, error) {
-	b, err := NewBDReadSeeker(file, playlist, 0)
+	b, err := NewBDReadSeeker(file, playlist)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,9 @@ func (m *M2TSRemuxer) overwritePMT(buffer []byte, pos int) int {
 	prePMT := buffer[:pos]
 	pmt := m.editPMT.Output()
 	postPMT := buffer[pos+m.origPacketCount*192 : len(buffer)-m.deltaSize]
-	m.b.Seek(int64(-m.deltaSize), io.SeekCurrent) // to reread the bytes we cut off above
+	if m.deltaSize != 0 {
+		m.b.Seek(int64(-m.deltaSize), io.SeekCurrent) // to reread the bytes we cut off above
+	}
 
 	var output []byte
 	output = append(output, prePMT...)
