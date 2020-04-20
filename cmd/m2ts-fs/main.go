@@ -14,15 +14,14 @@ import (
 	m2ts_fs "github.com/sjpotter/bluray-http-server/pkg/m2ts-fs"
 )
 
-func init() {
-	fstestutil.DebugByDefault()
-}
-
-var progName = filepath.Base(os.Args[0])
+var (
+	progName = filepath.Base(os.Args[0])
+	debug = flag.Bool("debug", false, "verbose fuse debugging")
+)
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", progName)
-	fmt.Fprintf(os.Stderr, "  %s STORAGE_DIR MOUNTPOINT\n", progName)
+	fmt.Fprintf(os.Stderr, "  %s [-debug] STORAGE_DIR MOUNTPOINT\n", progName)
 	flag.PrintDefaults()
 }
 
@@ -36,6 +35,10 @@ func main() {
 	if flag.NArg() != 2 {
 		usage()
 		os.Exit(2)
+	}
+
+	if *debug {
+		fstestutil.DebugByDefault()
 	}
 
 	path := flag.Arg(0)
