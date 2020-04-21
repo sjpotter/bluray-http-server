@@ -57,7 +57,8 @@ func parseVideo(ti *C.struct_bd_title_info) (string, error) {
 	case 0x24:
 		videoType = "hevc"
 	default:
-		return "", fmt.Errorf("unknown videotype %#x", int(ti.clips.video_streams.coding_type))
+		fmt.Printf("unknown videotype %#x", int(ti.clips.video_streams.coding_type))
+		videoType = "unknown"
 	}
 
 	return videoType, nil
@@ -138,7 +139,8 @@ func parsePGStream(stream *C.BLURAY_STREAM_INFO) (*types.PGInfo, error) {
 	case 0x92:
 		pgType = "text"
 	default:
-		return nil, fmt.Errorf("unknown pg type %#x", int(stream.coding_type))
+		fmt.Printf("unknown pg type %#x", int(stream.coding_type))
+		pgType = "unknown"
 	}
 
 	return &types.PGInfo{PGType: pgType, PGLang: lang}, nil
@@ -164,7 +166,8 @@ func parseAudioStream(stream *C.BLURAY_STREAM_INFO) (*types.AudioInfo, error) {
 	case 0x86:
 		audioType = "dtshdma"
 	default:
-		return nil, fmt.Errorf("unknown audio type %#x", int(stream.coding_type))
+		fmt.Printf("unknown audio type %#x", int(stream.coding_type))
+		audioType = "unknown"
 	}
 
 	return &types.AudioInfo{AudioType: audioType, AudioLang: lang}, nil
