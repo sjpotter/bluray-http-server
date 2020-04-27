@@ -1,31 +1,21 @@
-package m2ts_fs
+package bd_fs
 
 import (
-	"context"
-	"flag"
-	"io"
-
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-
+	"context"
 	"github.com/sjpotter/bluray-http-server/pkg/readers"
+	"io"
+	"time"
 )
-
-var (
-	insertLang = flag.Bool("insert-lang", false, "Insert language tags")
-)
-
-type M2TSInfo struct {
-	Name     string
-	File     string
-	Playlist int
-}
 
 var _ = fs.Node(&m2tsFile{})
 var _ = fs.NodeOpener(&m2tsFile{})
 
 type m2tsFile struct {
-	path string
+	device string
+	playlist int
+	size uint64
 }
 
 var _ = fs.Handle(&m2tsFileHandle{})
@@ -37,29 +27,24 @@ type m2tsFileHandle struct {
 	offset int64
 }
 
-func getM2TSFile(path string) (fs.Node, error) {
-	return &m2tsFile{path: path}, nil
+func getM2TSFile(device string, playlist int) (fs.Node, error) {
+	return &m2tsFile{device: device, playlist: playlist}, nil
+}
+
+func (m *m2tsFile) getM2TSRemuxer() (*readers.M2TSRemuxer, error) {
+	return readers.NewM2TSRemuxer(m.device, m.playlist)
 }
 
 func (m *m2tsFile) Attr(ctx context.Context, attr *fuse.Attr) error {
-	err := _attr(m.path, attr)
-	if err != nil {
-		return err
-	}
+	attr.Size = m.size
+	attr.Mode = 0644
+	attr.Valid = 24*7*365*time.Hour
 
-	rs, err := getM2TSRemuxer(m.path, *insertLang)
-	if err != nil {
-		return err
-	}
-	defer rs.Close()
-
-	attr.Size = rs.Size()
-
-	return err
+	return nil
 }
 
 func (m *m2tsFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	rs, err := getM2TSRemuxer(m.path, *insertLang)
+	rs, err := m.getM2TSRemuxer()
 	if err != nil {
 		return nil, err
 	}

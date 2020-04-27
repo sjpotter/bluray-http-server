@@ -44,8 +44,7 @@ func main() {
 
 	numTitles := C.bd_get_titles(bd, C.TITLES_RELEVANT, 0)
 
-	var i uint32 = 0
-	var playlists []uint32
+	var playlists = make(map[int]int64)
 
 	for i := 0; i < int(numTitles); i++ {
 		ti := C.bd_get_title_info(bd, C.uint(i), 0)
@@ -53,20 +52,27 @@ func main() {
 			continue
 		}
 		if (int64(ti.duration) / 90000) / 60 > *minLength {
-			playlists = append(playlists, uint32(ti.playlist))
+			playlists[int(ti.playlist)] = int64(ti.duration) / 90000
 		}
 		C.bd_free_title_info(ti)
 	}
 
 	if len(playlists) > 1 && *findOne {
-		fmt.Printf("Found %v titles over %v minutes long\n", len(playlists), *minLength)
+		fmt.Printf("%v: found %v titles over %v minutes long\n", *iso, len(playlists), *minLength)
+		for playlist, len := range playlists {
+			hours := len / 3600
+			len %= 3600
+			minutes := len / 60
+			secs := len % 60
+			fmt.Printf("\t%05d - %02d:%02d:%02d\n", playlist, hours, minutes, secs)
+		}
 		return
 	}
 
-	for _, i = range playlists {
+	for playlist, _ := range playlists {
 		info := m2ts_fs.M2TSInfo{
 			File: name,
-			Playlist: int(i),
+			Playlist: int(playlist),
 		}
 
 		data, err := yaml.Marshal(info)
@@ -75,7 +81,7 @@ func main() {
 			return
 		}
 
-		m2tsFileName := fmt.Sprintf("%v-%v.m2ts", name, i)
+		m2tsFileName := fmt.Sprintf("%v-%05d.m2ts", name, playlist)
 		m2tsFileName = filepath.Join(dir, m2tsFileName)
 		f, err := os.Create(m2tsFileName)
 		if err != nil {

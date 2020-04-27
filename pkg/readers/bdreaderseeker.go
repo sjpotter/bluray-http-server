@@ -55,17 +55,11 @@ type BDReadSeeker struct {
 
 func (b *BDReadSeeker) Read(buf []byte) (int, error) {
 	p := C.malloc(C.ulong(cap(buf)))
-	if p != nil {
-		defer C.free(p)
-	} else {
-		return 0, fmt.Errorf("couldn't allocate memory space for the read")
-	}
+	defer C.free(p)
 
 	size := C.bd_read(b.bd, (*C.uchar)(p), C.int(cap(buf)))
 
-	data := C.GoBytes(p, size)
-
-	copy(buf, data)
+	copy(buf, C.GoBytes(p, size))
 
 	return int(size), nil
 }
@@ -120,6 +114,8 @@ func findTitle(bd *C.BLURAY, file string, playlist int) (int, error) {
 		if ti == nil {
 			fmt.Printf("couldn't get title info for %v:%v", file, playlist)
 		}
+		defer C.bd_free_title_info(ti)
+
 		if int(ti.playlist) == playlist {
 			return int(ti.idx), nil
 		}
