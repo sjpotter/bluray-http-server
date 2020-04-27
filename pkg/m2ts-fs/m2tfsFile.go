@@ -2,12 +2,17 @@ package m2ts_fs
 
 import (
 	"context"
+	"flag"
 	"io"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 
 	"github.com/sjpotter/bluray-http-server/pkg/readers"
+)
+
+var (
+	insertLang = flag.Bool("insert-lang", false, "Insert language tags")
 )
 
 type M2TSInfo struct {
@@ -42,7 +47,7 @@ func (m *m2tsFile) Attr(ctx context.Context, attr *fuse.Attr) error {
 		return err
 	}
 
-	rs, err := getM2TSRemuxer(m.path)
+	rs, err := getM2TSRemuxer(m.path, *insertLang)
 	if err != nil {
 		return err
 	}
@@ -54,7 +59,7 @@ func (m *m2tsFile) Attr(ctx context.Context, attr *fuse.Attr) error {
 }
 
 func (m *m2tsFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	rs, err := getM2TSRemuxer(m.path)
+	rs, err := getM2TSRemuxer(m.path, *insertLang)
 	if err != nil {
 		return nil, err
 	}

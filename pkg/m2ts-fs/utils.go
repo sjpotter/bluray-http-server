@@ -38,7 +38,7 @@ func getBDRS(path string) (*readers.BDReadSeeker, error) {
 	return readers.NewBDReadSeeker(iso, info.Playlist)
 }
 
-func getM2TSRemuxer(path string) (*readers.M2TSRemuxer, error) {
+func getM2TSRemuxer(path string, insertLang bool) (readers.BluRayReader, error) {
 	info, err := readM2TSInfoFile(path)
 	if err != nil {
 		return nil, err
@@ -47,5 +47,9 @@ func getM2TSRemuxer(path string) (*readers.M2TSRemuxer, error) {
 	parent := filepath.Dir(path)
 	iso := filepath.Join(parent, info.File)
 
-	return readers.NewM2TSRemuxer(iso, info.Playlist)
+	if insertLang {
+		return readers.NewM2TSRemuxer(iso, info.Playlist)
+	} else {
+		return readers.NewBDReadSeeker(iso, info.Playlist)
+	}
 }
