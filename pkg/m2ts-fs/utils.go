@@ -46,7 +46,7 @@ func getM2TSRemuxer(path string, insertLang bool) (readers.BluRayReader, error) 
 	parent := filepath.Dir(path)
 	iso := filepath.Join(parent, info.File)
 
-	klog.Infof("Opening %v:%v", iso, info.Playlist)
+	klog.V(2).Infof("Opening %v:%v", iso, info.Playlist)
 
 	if insertLang {
 		return readers.NewM2TSRemuxer(iso, info.Playlist)
