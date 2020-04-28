@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"io"
+	"k8s.io/klog"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -34,6 +35,7 @@ var _ = fs.HandleReader(&m2tsFileHandle{})
 
 type m2tsFileHandle struct {
 	f      readers.BluRayReader
+	path   string
 	offset int64
 }
 
@@ -47,6 +49,8 @@ func (m *m2tsFile) Attr(ctx context.Context, attr *fuse.Attr) error {
 		return err
 	}
 
+	klog.V(2).Infof("Attr: %v", m.path)
+
 	rs, err := getM2TSRemuxer(m.path, *insertLang)
 	if err != nil {
 		return err
@@ -59,21 +63,25 @@ func (m *m2tsFile) Attr(ctx context.Context, attr *fuse.Attr) error {
 }
 
 func (m *m2tsFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
+	klog.V(1).Infof("Open: %v by %v", m.path, req.Pid)
+
 	rs, err := getM2TSRemuxer(m.path, *insertLang)
 	if err != nil {
 		return nil, err
 	}
 
-	return &m2tsFileHandle{f: rs}, nil
+	return &m2tsFileHandle{f: rs, path: m.path}, nil
 }
 
 func (m m2tsFileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
+	klog.V(1).Infof("Release: %v", m.path)
 	m.f.Close()
 
 	return nil
 }
 
 func (m *m2tsFileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
+	klog.V(3).Infof("Read: size = %v, offset = %v", req.Size, req.Offset)
 	var err error
 	if req.Offset != m.offset {
 		m.offset, err = m.f.Seek(req.Offset, io.SeekStart)

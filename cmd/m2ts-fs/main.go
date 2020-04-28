@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -11,12 +13,16 @@ import (
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fs/fstestutil"
 
+	"k8s.io/klog"
+
 	m2ts_fs "github.com/sjpotter/bluray-http-server/pkg/m2ts-fs"
+	_ "github.com/sjpotter/bluray-http-server/pkg/remote-control"
 )
 
 var (
 	progName = filepath.Base(os.Args[0])
 	debug = flag.Bool("debug", false, "verbose fuse debugging")
+	port  = flag.String("port", "8765", "port for rc to listne on")
 )
 
 func usage() {
@@ -26,6 +32,8 @@ func usage() {
 }
 
 func main() {
+	defer klog.Flush()
+
 	log.SetFlags(0)
 	log.SetPrefix(progName + ": ")
 
@@ -37,6 +45,17 @@ func main() {
 		os.Exit(2)
 	}
 
+	server := &http.Server{
+		Addr: fmt.Sprintf("localhost:%v", *port),
+	}
+
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			klog.Errorf("rc server failed: %v", err)
+		}
+	}()
+
 	if *debug {
 		fstestutil.DebugByDefault()
 	}
@@ -44,9 +63,13 @@ func main() {
 	path := flag.Arg(0)
 	mountpoint := flag.Arg(1)
 
+	klog.Infof("Starting Up")
+
 	if err := mount(path, mountpoint); err != nil {
 		log.Fatal(err)
 	}
+
+	server.Shutdown(context.Background())
 }
 
 func mount(path, mountpoint string) error {
@@ -69,3 +92,4 @@ func mount(path, mountpoint string) error {
 
 	return nil
 }
+
