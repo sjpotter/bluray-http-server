@@ -3,10 +3,17 @@ package m2ts_fs
 import (
 	"io/ioutil"
 	"path/filepath"
+	"sync"
 
-    "github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml"
+
+	"k8s.io/klog"
 
 	"github.com/sjpotter/bluray-http-server/pkg/readers"
+)
+
+var (
+	openLock sync.Mutex
 )
 
 func readM2TSInfoFile(path string) (*M2TSInfo, error) {
@@ -26,19 +33,11 @@ func readM2TSInfoFile(path string) (*M2TSInfo, error) {
 	return &info, nil
 }
 
-func getBDRS(path string) (*readers.BDReadSeeker, error) {
-	info, err := readM2TSInfoFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	parent := filepath.Dir(path)
-	iso := filepath.Join(parent, info.File)
-
-	return readers.NewBDReadSeeker(iso, info.Playlist)
-}
-
 func getM2TSRemuxer(path string, insertLang bool) (readers.BluRayReader, error) {
+	// have had issues with crashes in libbluray, wondering if its not thread safe on opening, maybe serializing helps?
+	openLock.Lock()
+	defer openLock.Unlock()
+
 	info, err := readM2TSInfoFile(path)
 	if err != nil {
 		return nil, err
@@ -46,6 +45,8 @@ func getM2TSRemuxer(path string, insertLang bool) (readers.BluRayReader, error) 
 
 	parent := filepath.Dir(path)
 	iso := filepath.Join(parent, info.File)
+
+	klog.Infof("Opening %v:%v", iso, info.Playlist)
 
 	if insertLang {
 		return readers.NewM2TSRemuxer(iso, info.Playlist)
