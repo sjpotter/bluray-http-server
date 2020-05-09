@@ -24,6 +24,7 @@ type M2TSInfo struct {
 
 var _ = fs.Node(&m2tsFile{})
 var _ = fs.NodeOpener(&m2tsFile{})
+var _ = fs.NodeGetattrer(&m2tsFile{})
 
 type m2tsFile struct {
 	path string
@@ -41,6 +42,11 @@ type m2tsFileHandle struct {
 
 func getM2TSFile(path string) (fs.Node, error) {
 	return &m2tsFile{path: path}, nil
+}
+
+func (m *m2tsFile) Getattr(ctx context.Context, req *fuse.GetattrRequest, resp *fuse.GetattrResponse) error {
+	klog.V(1).Infof("Getattr: %v by %v", m.path, req.Pid)
+	return m.Attr(ctx, &resp.Attr)
 }
 
 func (m *m2tsFile) Attr(ctx context.Context, attr *fuse.Attr) error {
