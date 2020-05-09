@@ -38,7 +38,7 @@ func rc(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		default:
-			klog.Infof()
+			klog.Infof("Invalid RC command: %v", k)
 			w.Write([]byte(fmt.Sprintf("Unknown: %v", k)))
 			return
 		}
