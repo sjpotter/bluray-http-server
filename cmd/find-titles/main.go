@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/goccy/go-yaml"
 
@@ -70,19 +71,54 @@ func main() {
 		}
 	}
 
-	if len(playlists) > 1 && *findOne {
-		fmt.Printf("%v: found %v titles over %v minutes long\n", *iso, len(playlists), *minLength)
-		for title, ti := range playlists {
-			len := ti.duration / 90000
-			hours := len / 3600
-			len %= 3600
-			minutes := len / 60
-			secs := len % 60
-			fmt.Printf("\t%03d(%05d) - %02d:%02d:%02d\n", title, ti.playlist, hours, minutes, secs)
-
-			C.bd_free_title_info(ti)
+	switch len(playlists) {
+	case 0:
+	case 2:
+		if *findOne {
+			var ti1 *C.struct_bd_title_info
+			var ti2 *C.struct_bd_title_info
+			for _, v := range playlists {
+				if ti1 == nil {
+					ti1 = v
+				} else {
+					ti2 = v
+				}
+			}
+			if areEqual(ti1, ti2) {
+				if ti1.chapter_count != ti2.chapter_count {
+					newPlaylists := make(map[int]*C.struct_bd_title_info)
+					if ti1.chapter_count > ti2.chapter_count {
+						fmt.Printf("Picking %v\n", ti1.playlist)
+						newPlaylists[int(ti1.playlist)] = ti1
+					} else {
+						fmt.Printf("Picking %v\n", ti2.playlist)
+						newPlaylists[int(ti2.playlist)] = ti2
+					}
+					playlists = newPlaylists
+					break
+				}
+			}
 		}
-		return
+
+		fallthrough
+	default:
+		if *findOne {
+			fmt.Printf("%v: found %v titles over %v minutes long\n", *iso, len(playlists), *minLength)
+			for title, ti := range playlists {
+				len := ti.duration / 90000
+				hours := len / 3600
+				len %= 3600
+				minutes := len / 60
+				secs := len % 60
+				fmt.Printf("\t%03d(%05d) - %02d:%02d:%02d\n", title, ti.playlist, hours, minutes, secs)
+
+				C.bd_free_title_info(ti)
+			}
+			return
+		}
+	}
+
+	if len(playlists) > 1 && *findOne {
 	}
 
 	for playlist, _ := range playlists {
@@ -90,6 +126,116 @@ func main() {
 			return
 		}
 	}
+}
+
+func areEqual(ti1 *C.struct_bd_title_info, ti2 *C.struct_bd_title_info) bool {
+	if ti1.duration != ti2.duration {
+		return false
+	}
+
+	if ti1.clip_count == 0 || ti2.clip_count == 0 || ti1.clip_count != ti2.clip_count {
+		return false
+	}
+
+	t1clips := (*[1 << 30]C.struct_bd_clip)(unsafe.Pointer(ti1.clips))[:ti1.clip_count:ti1.clip_count]
+	t2clips := (*[1 << 30]C.struct_bd_clip)(unsafe.Pointer(ti2.clips))[:ti2.clip_count:ti2.clip_count]
+
+	return clipsEqual(t1clips, t2clips)
+}
+
+func clipsEqual(c1 []C.struct_bd_clip, c2 []C.struct_bd_clip) bool {
+	for i, _ := range c1 {
+		c1p := c1[i]
+		c2p := c2[i]
+		if c1p.pkt_count != c2p.pkt_count {
+			return false
+		}
+		if c1p.still_mode != c2p.still_mode {
+			return false
+		}
+		if c1p.still_time != c2p.still_time {
+			return false
+		}
+		if c1p.video_stream_count != c2p.video_stream_count {
+			return false
+		}
+		if c1p.pg_stream_count != c2p.pg_stream_count {
+			return false
+		}
+		if c1p.ig_stream_count != c2p.ig_stream_count {
+			return false
+		}
+		if c1p.sec_audio_stream_count != c2p.sec_audio_stream_count {
+			return false
+		}
+		if c1p.sec_video_stream_count != c2p.sec_video_stream_count {
+			return false
+		}
+
+		c1pV := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(c1p.video_streams))[:c1p.video_stream_count:c1p.video_stream_count]
+		c2pV := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(c2p.video_streams))[:c2p.video_stream_count:c2p.video_stream_count]
+
+		if !compareStreamInfos(c1pV, c2pV) {
+			return false
+		}
+
+		c1pA := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(c1p.audio_streams))[:c1p.audio_stream_count:c1p.audio_stream_count]
+		c2pA := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(c2p.audio_streams))[:c2p.audio_stream_count:c2p.audio_stream_count]
+
+		if !compareStreamInfos(c1pA, c2pA) {
+			return false
+		}
+
+		c1pI := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(c1p.ig_streams))[:c1p.ig_stream_count:c1p.audio_stream_count]
+		c2PI := (*[1 << 30]C.BLURAY_STREAM_INFO)(unsafe.Pointer(c2p.ig_streams))[:c2p.ig_stream_count:c2p.audio_stream_count]
+
+		if !compareStreamInfos(c1pI, c2PI) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func compareStreamInfos(si1 []C.BLURAY_STREAM_INFO, si2 []C.BLURAY_STREAM_INFO) bool {
+	for i, _ := range si1 {
+		si1p := si1[i]
+		si2p := si2[i]
+
+		if si1p.coding_type != si2p.coding_type {
+			return false
+		}
+
+		if si1p.format != si2p.format {
+			return false
+		}
+
+		if si1p.rate != si2p.rate {
+			return false
+		}
+
+		if si1p.char_code != si2p.char_code {
+			return false
+		}
+
+		if si1p.lang[0] != si2p.lang[0] || si1p.lang[1] != si2p.lang[1] || si1p.lang[2] != si2p.lang[2] || si1p.lang[3] != si2p.lang[3] {
+			return false
+		}
+
+		if si1p.pid != si2p.pid {
+			return false
+		}
+
+		if si1p.aspect != si2p.aspect {
+			return false
+		}
+
+		if si1p.subpath_id != si2p.subpath_id {
+			return false
+		}
+	}
+
+	return true
 }
 
 func writePlaylist(fileName string, playlist int, dir string) bool {
